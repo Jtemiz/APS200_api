@@ -15,6 +15,8 @@ measurement_active = False
 pause_active = False
 
 # todo
+# changelog
+
 """
 def runServer():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
