@@ -128,7 +128,7 @@ def settings_add_comment_btn(sid, comment_btn: str):
 
 
 @SIO.on('settings:delete:commentBtn')
-def settings_delete_comment_btn(sid, comment_btn: str)
+def settings_delete_comment_btn(sid, comment_btn: str):
     try:
         db_con.dropCommentBtn(comment_btn)
         return 'ok'

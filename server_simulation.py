@@ -14,8 +14,8 @@ speed_max = 20
 measurement_active = False
 pause_active = False
 
-
-
+# todo
+"""
 def runServer():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     global index
@@ -27,7 +27,7 @@ def runServer():
         print(tmpstr)
         sock.sendto(tmpstr, ("127.0.0.1", 5100))
         time.sleep(5)
-
+"""
 
 def genMessage(index):
     str = "VALUE;{index};{position};{height};{speed}"
