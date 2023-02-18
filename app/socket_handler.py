@@ -2,8 +2,8 @@ import os
 import traceback
 
 import socketio
-import globals as glob
-import db_connection as db_con
+import app.globals as glob
+import app.db_connection as db_con
 
 SIO = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 APP = socketio.ASGIApp(SIO)
@@ -11,10 +11,10 @@ BACKGROUND_TASK_STARTED = False
 
 
 @SIO.event
-def connect(sid, environ):
+def connect(sid, environ, data):
     global BACKGROUND_TASK_STARTED
     if not BACKGROUND_TASK_STARTED:
-        SIO.start_background_task(...)
+        SIO.start_background_task(background_task)
         BACKGROUND_TASK_STARTED = True
 
 
@@ -71,6 +71,22 @@ def chart_add_comment(sid, data: dict):
         return 'error', ex
 
 
+@SIO.on('chart:set:metadata')
+def chart_set_metaData(sid, data: dict):
+    try:
+
+        metaData = data['metaData']
+        glob.METADATA_NAME = metaData['name']
+        glob.METADATA_USER = metaData['user']
+        glob.METADATA_LOCATION = metaData['location']
+        glob.METADATA_NOTES = metaData['notes']
+        db_con.insertMetadata()
+        return 'ok'
+    except Exception as ex:
+        print(ex)
+        return 'error', ex
+
+
 ################
 # Data Actions #
 ################
@@ -110,7 +126,7 @@ def data_delete_table(sid, table_name: str):
 # SETTINGS Actions #
 ####################
 
-@SIO.on('settings:get:commentBtn')
+@SIO.on('settings:get:commentBtns')
 def settings_get_all_comment_btns(sid):
     try:
         return db_con.getAllCommentBtns()

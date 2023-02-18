@@ -3,14 +3,19 @@ import traceback
 
 import pymysql
 from dbutils.persistent_db import PersistentDB
-import globals as glob
+import app.globals as glob
+from configparser import ConfigParser
+
+config = ConfigParser()
+config.read('app/preferences.ini')
+print(config)
 
 db_config = {
-    'host': '127.0.0.1',
-    'user': 'messmodul',
-    'password': 'Jockel01.',
-    'database': 'MESSDATEN',
-    'connect_timeout': 5
+    'host': config['mysql']['host'],
+    'user': config['mysql']['user'],
+    'password': config['mysql']['password'],
+    'database': config['mysql']['database'],
+    'connect_timeout': int(config['mysql']['connect_timeout'])
 }
 
 mysql_connection_pool = PersistentDB(
@@ -73,7 +78,7 @@ def insertMetadata():
         cnx = mysql_connection_pool.connection()
         cursor = cnx.cursor()
         sql = "INSERT INTO `metadata` VALUES (%s, %s, %s, %s, %s, %s)"
-        cursor.execute(sql, (glob.TABLENAME, glob.METADATA_LOCATION, glob.METADATA_DISTANCE, glob.METADATA_USER, glob.METADATA_MEASURE, glob.METADATA_NAME))
+        cursor.execute(sql, (glob.METADATA_TIMESTAMP, glob.METADATA_LOCATION, glob.METADATA_DISTANCE, glob.METADATA_USER, glob.METADATA_NAME, glob.METADATA_NOTES))
         cnx.commit()
         cursor.close()
         cnx.close()

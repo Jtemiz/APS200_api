@@ -1,14 +1,17 @@
 DROP TABLE IF EXISTS `metadata`;
 
-CREATE TABLE `metadata` (
-  `measurement` varchar(18) NOT NULL,
-  `place` varchar(30) DEFAULT NULL,
-  `distance` float(10,2) DEFAULT NULL,
-  `user` varchar(30) DEFAULT NULL,
-  `measure` varchar(100) DEFAULT 'Nicht angegeben',
-  `date` datetime NOT NULL,
-  PRIMARY KEY (`measurement`)
+create table metadata
+(
+    measurement     varchar(18)  not null
+        primary key,
+    location        text,
+    distance        float(20, 2) not null,
+    username        text,
+    measurementname text,
+    notes text
 );
+
+
 
 CREATE TABLE IF NOT EXISTS `ExampleTable` (
   `IDX` int(8) NOT NULL,

@@ -2,13 +2,15 @@ import logging
 import socketserver
 import threading
 import traceback
+import app.globals as glob
+from configparser import ConfigParser
 
-import globals as glob
-
-UDP_SERVER_IP = "192.168.5.1"
-UDP_SERVER_PORT = 5100
-UDP_CLIENT_ADDRESS = "192.168.5.2"
-UDP_CLIENT_PORT = 9000
+config = ConfigParser()
+config.read('app/preferences.ini')
+UDP_SERVER_IP = config['arduino']['UDP_SERVER_IP']
+UDP_SERVER_PORT = int(config['arduino']['UDP_SERVER_PORT'])
+UDP_CLIENT_ADDRESS = config['arduino']['UDP_CLIENT_ADDRESS']
+UDP_CLIENT_PORT = int(config['arduino']['UDP_CLIENT_PORT'])
 
 
 class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
@@ -44,7 +46,6 @@ class UDPServer(threading.Thread):
             logging.info("RunUDPServer")
             self.udp_server_object = socketserver.ThreadingUDPServer(self.server_address, MyUDPRequestHandler)
             self.udp_server_object.serve_forever()
-
         except Exception as ex:
             logging.error("UDPServer.run(): " + str(ex) + "\n" + traceback.format_exc())
 
@@ -75,3 +76,9 @@ class SUDPServer():
         if SUDPServer.__server is not None:
             raise Exception("Class is already initialized")
         SUDPServer.__server = UDPServer()
+
+def init_connection():
+    try:
+        SUDPServer.start_server()
+    except Exception as ex:
+        print(ex)
