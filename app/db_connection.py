@@ -23,30 +23,26 @@ mysql_connection_pool = PersistentDB(
     **db_config
 )
 
-def createTable(tableName):
-    try:
-        cnx = mysql_connection_pool.connection()
-        cursor = cnx.cursor()
-        sql = "CREATE TABLE `" + tableName + "` LIKE `ExampleTable`;"
-        cursor.execute(sql)
-        cnx.commit()
-        cursor.close()
-        cnx.close()
-    except Exception as ex:
-        logging.error("db_connection.createTable(): " + str(ex) + "\n" + traceback.format_exc())
 
-def insertTable(tableName):
-    try:
-        SqlData = list([(i['position'], i['height'], i['speed'], i['strWidth'], i['limVal']) for i in glob.LONGTERM_VALUES])
-        cnx = mysql_connection_pool.connection()
-        cursor = cnx.cursor()
-        sql = "INSERT INTO `" + tableName + "` (POSITION, HOEHE, GESCHWINDIGKEIT, BREITE, GRENZWERT) VALUES (%s, %s, %s, %s, %s)"
-        cursor.executemany(sql, SqlData)
-        cnx.commit()
-        cursor.close()
-        cnx.close()
-    except Exception as ex:
-        logging.error('db_connection.insertTable(): ' + str(ex) + '/n' + traceback.format_exc())
+def create_table(tableName):
+    cnx = mysql_connection_pool.connection()
+    cursor = cnx.cursor()
+    sql = "CREATE TABLE IF NOT EXISTS`" + tableName + "` LIKE `ExampleTable`;"
+    cursor.execute(sql)
+    cnx.commit()
+    cursor.close()
+    cnx.close()
+
+
+def insert_table(tableName):
+    SqlData = list([(i['position'], i['height'], i['speed'], i['strWidth'], i['limVal']) for i in glob.LONGTERM_VALUES])
+    cnx = mysql_connection_pool.connection()
+    cursor = cnx.cursor()
+    sql = "INSERT INTO `" + tableName + "` (POSITION, HOEHE, GESCHWINDIGKEIT, BREITE, GRENZWERT) VALUES (%s, %s, %s, %s, %s)"
+    cursor.executemany(sql, SqlData)
+    cnx.commit()
+    cursor.close()
+    cnx.close()
 
 
 def insert_comment(table_name, comment, position):
@@ -73,17 +69,17 @@ def insert_comment(table_name, comment, position):
                 logging.error("db_connection.insertComment(): " + str(ex) +
                               "\n" + traceback.format_exc())
 
-def insertMetadata():
-    try:
-        cnx = mysql_connection_pool.connection()
-        cursor = cnx.cursor()
-        sql = "INSERT INTO `metadata` VALUES (%s, %s, %s, %s, %s, %s)"
-        cursor.execute(sql, (glob.METADATA_TIMESTAMP, glob.METADATA_LOCATION, glob.METADATA_DISTANCE, glob.METADATA_USER, glob.METADATA_NAME, glob.METADATA_NOTES))
-        cnx.commit()
-        cursor.close()
-        cnx.close()
-    except Exception as ex:
-        logging.error("db_connection.insertMetadata(): " + str(ex) + "\n" + traceback.format_exc())
+
+def insert_metadata(timestamp):
+    cnx = mysql_connection_pool.connection()
+    cursor = cnx.cursor()
+    sql = "INSERT INTO `metadata` VALUES (%s, %s, %s, %s, %s, %s)"
+    cursor.execute(sql, (timestamp, glob.METADATA_LOCATION, glob.METADATA_DISTANCE, glob.METADATA_USER,
+                         glob.METADATA_NAME, glob.METADATA_NOTES))
+    cnx.commit()
+    cursor.close()
+    cnx.close()
+
 
 def insertCommentBtn(comment):
     try:
@@ -146,11 +142,12 @@ def get_all_metadata():
     try:
         cnx = mysql_connection_pool.connection()
         cursor = cnx.cursor()
-        sql = "SELECT * FROM `metadata` ORDER BY `measurement`"
+        sql = "SELECT `measurement`, `location`, `distance`, `username`, `measurementname`, `notes` FROM `metadata` ORDER BY `measurement`"
         cursor.execute(sql, )
         result = cursor.fetchall()
         cursor.close()
         cnx.close()
+        print(result)
         return result
     except Exception as ex:
         logging.error("db_connection.getAllTables(): " + str(ex) + "\n" + traceback.format_exc())
@@ -185,19 +182,16 @@ def dropCommentBtn(comment):
     except Exception as ex:
         logging.error("db_connection.dropCommentBtn(): " + str(ex) + "\n" + traceback.format_exc())
 
-def dropTable(tablename):
-    try:
-        cnx = mysql_connection_pool.connection()
-        cursor = cnx.cursor()
-        sql = "DROP TABLE `%s`"
-        cursor.execute(sql, int(tablename))
-        sql = "DELETE FROM metadata WHERE measurement LIKE %s"
-        cursor.execute(sql, tablename)
-        sql = "DELETE FROM comments WHERE measurement LIKE %s"
-        cursor.execute(sql, tablename)
-        cnx.commit()
-        cursor.close()
-        cnx.close()
-    except Exception as ex:
-        logging.error("db_connection.dropTable(): " + str(ex) + "\n" + traceback.format_exc())
+def drop_table(tablename):
+    cnx = mysql_connection_pool.connection()
+    cursor = cnx.cursor()
+    sql = "DROP TABLE `%s`"
+    cursor.execute(sql, int(tablename))
+    sql = "DELETE FROM metadata WHERE measurement LIKE %s"
+    cursor.execute(sql, tablename)
+    sql = "DELETE FROM comments WHERE measurement LIKE %s"
+    cursor.execute(sql, tablename)
+    cnx.commit()
+    cursor.close()
+    cnx.close()
 

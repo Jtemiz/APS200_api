@@ -20,8 +20,21 @@ ARD_COMMANDS = {
     'startKali': '073'
 }
 
+def reset_arduino():
+    try:
+        send_message(ARD_COMMANDS['reset'])
+    except Exception as ex:
+        print(ex)
+
 
 def start_arduino():
+    try:
+        send_message(ARD_COMMANDS['start'])
+    except Exception as ex:
+        print(ex)
+
+
+def stop_arduino():
     try:
         send_message(ARD_COMMANDS['start'])
     except Exception as ex:
@@ -32,6 +45,7 @@ def send_message(message):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.sendto(message, (UDP_CLIENT_IP, UDP_CLIENT_PORT))
     sock.close()
+
 
 class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
     def handle(self):

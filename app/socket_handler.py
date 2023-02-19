@@ -1,3 +1,4 @@
+import datetime
 import os
 import traceback
 
@@ -21,7 +22,7 @@ def connect(sid, environ, data):
 
 async def background_task():
     while True:
-        await SIO.sleep(0.05)
+        await SIO.sleep(0.2)
         await SIO.emit('status', {
             'MEASUREMENT_ACTIVE': glob.MEASUREMENT_ACTIVE,
             'PAUSE_ACTIVE': glob.PAUSE_ACTIVE,
@@ -35,8 +36,12 @@ async def background_task():
 # Chart Actions #
 #################
 @SIO.on('chart:start:measuring')
-def chart_start_measuring(sid):
-    ard_con.start
+def chart_start_measuring(sid, data):
+    glob.METADATA_TIMESTAMP = str(data['timestamp'])
+
+    print(glob.METADATA_TIMESTAMP)
+   # ard_con.reset_arduino()
+   # ard_con.start_arduino()
     glob.MEASUREMENT_ACTIVE = True
     glob.PAUSE_ACTIVE = False
     return 'ok'
@@ -44,19 +49,36 @@ def chart_start_measuring(sid):
 
 @SIO.on('chart:stop:measuring')
 def chart_stop_measuring(sid):
-    glob.MEASUREMENT_ACTIVE = False
-    glob.PAUSE_ACTIVE = False
-    return 'ok'
+    try:
+        #ard_con.stop_arduino()
+        db_con.create_table(glob.METADATA_TIMESTAMP)
+        db_con.insert_table(glob.METADATA_TIMESTAMP)
+        db_con.insert_metadata(glob.METADATA_TIMESTAMP)
+        glob.VIEW_VALUES = []
+        glob.LONGTERM_VALUES = []
+        glob.MEASUREMENT_DISTANCE = 0.0
+        glob.MEASUREMENT_ACTIVE = False
+        glob.PAUSE_ACTIVE = False
+        return 'ok'
+    except Exception as ex:
+        print(ex)
+        return 'error', ex
 
 
 @SIO.on('chart:start:pause')
-def chart_start_measuring(sid):
+def chart_start_pause(sid):
+    #ard_con.stop_arduino()
+    db_con.create_table(glob.METADATA_TIMESTAMP)
+    db_con.insert_table(glob.METADATA_TIMESTAMP)
+    glob.VIEW_VALUES = []
+    glob.LONGTERM_VALUES = []
     glob.PAUSE_ACTIVE = True
     return 'ok'
 
 
 @SIO.on('chart:stop:pause')
-def chart_stop_measuring(sid):
+def chart_stop_pause(sid):
+    ard_con.start_arduino()
     glob.PAUSE_ACTIVE = False
     return 'ok'
 
@@ -76,13 +98,11 @@ def chart_add_comment(sid, data: dict):
 @SIO.on('chart:set:metadata')
 def chart_set_metaData(sid, data: dict):
     try:
-
         metaData = data['metaData']
         glob.METADATA_NAME = metaData['name']
         glob.METADATA_USER = metaData['user']
         glob.METADATA_LOCATION = metaData['location']
         glob.METADATA_NOTES = metaData['notes']
-        db_con.insertMetadata()
         return 'ok'
     except Exception as ex:
         print(ex)
@@ -108,7 +128,10 @@ def data_get_measurement(sid, table_name: str):
 @SIO.on('data:get:allTables')
 def data_get_all_tables(sid):
     try:
-        return db_con.get_all_metadata()
+        result = []
+        for i, table in enumerate(db_con.get_all_metadata()):
+            result.append({'id': i+1, 'location': table[1], 'distance': table[2], 'user': table[3], 'name': table[4], 'notes': table[5], 'date': table[0]})
+        return result
     except Exception as ex:
         return 'error', ex
 
@@ -116,7 +139,7 @@ def data_get_all_tables(sid):
 @SIO.on('data:delete:table')
 def data_delete_table(sid, table_name: str):
     try:
-        db_con.dropTable(table_name)
+        db_con.drop_table(table_name)
         return 'ok'
     except Exception as ex:
         return 'error', ex
