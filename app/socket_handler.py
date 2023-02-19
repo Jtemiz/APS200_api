@@ -4,6 +4,7 @@ import traceback
 import socketio
 import app.globals as glob
 import app.db_connection as db_con
+import app.arduino_connection as ard_con
 
 SIO = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 APP = socketio.ASGIApp(SIO)
@@ -35,6 +36,7 @@ async def background_task():
 #################
 @SIO.on('chart:start:measuring')
 def chart_start_measuring(sid):
+    ard_con.start
     glob.MEASUREMENT_ACTIVE = True
     glob.PAUSE_ACTIVE = False
     return 'ok'

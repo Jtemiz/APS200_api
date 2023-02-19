@@ -1,4 +1,5 @@
 import logging
+import socket
 import socketserver
 import threading
 import traceback
@@ -9,9 +10,28 @@ config = ConfigParser()
 config.read('app/preferences.ini')
 UDP_SERVER_IP = config['arduino']['UDP_SERVER_IP']
 UDP_SERVER_PORT = int(config['arduino']['UDP_SERVER_PORT'])
-UDP_CLIENT_ADDRESS = config['arduino']['UDP_CLIENT_ADDRESS']
+UDP_CLIENT_IP = config['arduino']['UDP_CLIENT_IP']
 UDP_CLIENT_PORT = int(config['arduino']['UDP_CLIENT_PORT'])
 
+ARD_COMMANDS = {
+    'start': '070',
+    'stop': '071',
+    'reset': '072',
+    'startKali': '073'
+}
+
+
+def start_arduino():
+    try:
+        send_message(ARD_COMMANDS['start'])
+    except Exception as ex:
+        print(ex)
+
+
+def send_message(message):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.sendto(message, (UDP_CLIENT_IP, UDP_CLIENT_PORT))
+    sock.close()
 
 class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
     def handle(self):
