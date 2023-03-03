@@ -35,10 +35,10 @@ def create_table(tableName):
 
 
 def insert_table(tableName):
-    SqlData = list([(i['position'], i['height'], i['speed'], i['strWidth'], i['limVal']) for i in glob.LONGTERM_VALUES])
+    SqlData = list([(i['index'], i['position'], i['height'], i['speed'], i['strWidth'], i['limVal']) for i in glob.LONGTERM_VALUES])
     cnx = mysql_connection_pool.connection()
     cursor = cnx.cursor()
-    sql = "INSERT INTO `" + tableName + "` (POSITION, HOEHE, GESCHWINDIGKEIT, BREITE, GRENZWERT) VALUES (%s, %s, %s, %s, %s)"
+    sql = "INSERT INTO `" + tableName + "` (IDX, POSITION, HOEHE, GESCHWINDIGKEIT, BREITE, GRENZWERT) VALUES (%s, %s, %s, %s, %s, %s)"
     cursor.executemany(sql, SqlData)
     cnx.commit()
     cursor.close()

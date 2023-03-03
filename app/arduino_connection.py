@@ -36,26 +36,28 @@ def start_arduino():
 
 def stop_arduino():
     try:
-        send_message(ARD_COMMANDS['start'])
+        send_message(ARD_COMMANDS['stop'])
     except Exception as ex:
         print(ex)
 
 
 def send_message(message):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.sendto(message, (UDP_CLIENT_IP, UDP_CLIENT_PORT))
+    sock.sendto(message.encode('ascii'), (UDP_CLIENT_IP, UDP_CLIENT_PORT))
     sock.close()
 
 
 class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
     def handle(self):
         message = self.rfile.readline().strip().decode('UTF-8')
+        print(message)
         if "VALUE" in message:
             typeDataSplit = message.split(";")
             data = {
-                "position": float(typeDataSplit[1]),
-                "height": float(typeDataSplit[2]),
-                "speed": float(typeDataSplit[3]),
+                "index": int(typeDataSplit[1]),
+                "position": float(typeDataSplit[2]),
+                "height": float(typeDataSplit[3]),
+                "speed": float(typeDataSplit[4]),
                 "strWidth": glob.STREET_WIDTH,
                 "limVal": glob.LIMIT_VALUE
             }

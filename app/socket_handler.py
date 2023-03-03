@@ -10,6 +10,7 @@ import app.arduino_connection as ard_con
 SIO = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 APP = socketio.ASGIApp(SIO)
 BACKGROUND_TASK_STARTED = False
+ard_con.init_connection()
 
 
 @SIO.event
@@ -30,6 +31,9 @@ async def background_task():
             'MEASUREMENT_DISTANCE': glob.MEASUREMENT_DISTANCE,
             'MEASUREMENT_VALUE': glob.MEASUREMENT_VALUE
         })
+        if glob.MEASUREMENT_ACTIVE:
+            await SIO.emit('value', glob.VIEW_VALUES)
+            glob.VIEW_VALUES = []
 
 
 #################
@@ -38,10 +42,8 @@ async def background_task():
 @SIO.on('chart:start:measuring')
 def chart_start_measuring(sid, data):
     glob.METADATA_TIMESTAMP = str(data['timestamp'])
-
-    print(glob.METADATA_TIMESTAMP)
-   # ard_con.reset_arduino()
-   # ard_con.start_arduino()
+    ard_con.reset_arduino()
+    ard_con.start_arduino()
     glob.MEASUREMENT_ACTIVE = True
     glob.PAUSE_ACTIVE = False
     return 'ok'
@@ -50,7 +52,7 @@ def chart_start_measuring(sid, data):
 @SIO.on('chart:stop:measuring')
 def chart_stop_measuring(sid):
     try:
-        #ard_con.stop_arduino()
+        ard_con.stop_arduino()
         db_con.create_table(glob.METADATA_TIMESTAMP)
         db_con.insert_table(glob.METADATA_TIMESTAMP)
         db_con.insert_metadata(glob.METADATA_TIMESTAMP)
@@ -67,7 +69,7 @@ def chart_stop_measuring(sid):
 
 @SIO.on('chart:start:pause')
 def chart_start_pause(sid):
-    #ard_con.stop_arduino()
+    ard_con.stop_arduino()
     db_con.create_table(glob.METADATA_TIMESTAMP)
     db_con.insert_table(glob.METADATA_TIMESTAMP)
     glob.VIEW_VALUES = []
