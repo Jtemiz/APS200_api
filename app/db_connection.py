@@ -8,7 +8,6 @@ from configparser import ConfigParser
 
 config = ConfigParser()
 config.read('app/preferences.ini')
-print(config)
 
 db_config = {
     'host': config['mysql']['host'],
@@ -35,10 +34,10 @@ def create_table(tableName):
 
 
 def insert_table(tableName):
-    SqlData = list([(i['index'], i['position'], i['height'], i['speed'], i['strWidth'], i['limVal']) for i in glob.LONGTERM_VALUES])
+    SqlData = list([(i['position'], i['height'], i['speed'], i['strWidth'], i['limVal']) for i in glob.LONGTERM_VALUES])
     cnx = mysql_connection_pool.connection()
     cursor = cnx.cursor()
-    sql = "INSERT INTO `" + tableName + "` (IDX, POSITION, HOEHE, GESCHWINDIGKEIT, BREITE, GRENZWERT) VALUES (%s, %s, %s, %s, %s, %s)"
+    sql = "INSERT INTO `" + tableName + "` (POSITION, HOEHE, GESCHWINDIGKEIT, BREITE, GRENZWERT) VALUES (%s, %s, %s, %s, %s)"
     cursor.executemany(sql, SqlData)
     cnx.commit()
     cursor.close()
@@ -60,7 +59,7 @@ def insert_comment(table_name, comment, position):
                 cnx = mysql_connection_pool.connection()
                 cursor = cnx.cursor()
                 sql = "UPDATE `comments` SET `comment`=%s WHERE `measurement`=%s AND `position`=%s"
-                cursor.execute(sql, (glob.TABLENAME, position, comment))
+                cursor.execute(sql, (comment, table_name, position))
                 cnx.commit()
                 cursor.close()
                 cnx.close()
@@ -74,7 +73,7 @@ def insert_metadata(timestamp):
     cnx = mysql_connection_pool.connection()
     cursor = cnx.cursor()
     sql = "INSERT INTO `metadata` VALUES (%s, %s, %s, %s, %s, %s)"
-    cursor.execute(sql, (timestamp, glob.METADATA_LOCATION, glob.METADATA_DISTANCE, glob.METADATA_USER,
+    cursor.execute(sql, (timestamp, glob.METADATA_LOCATION, glob.MEASUREMENT_DISTANCE, glob.METADATA_USER,
                          glob.METADATA_NAME, glob.METADATA_NOTES))
     cnx.commit()
     cursor.close()
@@ -94,12 +93,20 @@ def insertCommentBtn(comment):
         logging.error("db_connection.insertCommentBtn(): " + str(ex) + "\n" + traceback.format_exc())
 
 
-def get_table(table_name):
+def get_table(table_name, with_comments):
     try:
         cnx = mysql_connection_pool.connection()
         cursor = cnx.cursor()
-        sql = "SELECT * FROM `%s` ORDER BY 'POSITION'"
-        cursor.execute(sql, table_name)
+        if with_comments:
+            sql = "SELECT vals.POSITION, vals.HOEHE, vals.GESCHWINDIGKEIT, vals.BREITE, vals.GRENZWERT, coms.comment " \
+                  "FROM `%s` AS vals LEFT JOIN " \
+                  "(SELECT `position`, `comment` FROM `comments` WHERE `measurement`=%s) " \
+                  "AS coms ON coms.position = vals.POSITION " \
+                  "ORDER BY vals.POSITION"
+            cursor.execute(sql, (int(table_name), table_name))
+        else:
+            sql = "SELECT * FROM `%s` ORDER BY 'POSITION'"
+            cursor.execute(sql, int(table_name))
         result = list(cursor.fetchall())
         cursor.close()
         cnx.close()
@@ -138,6 +145,7 @@ def getMetadata(tablename):
         logging.error("db_connection.getMetadata(): " + str(ex) + "\n" + traceback.format_exc())
         return []
 
+
 def get_all_metadata():
     try:
         cnx = mysql_connection_pool.connection()
@@ -152,6 +160,7 @@ def get_all_metadata():
     except Exception as ex:
         logging.error("db_connection.getAllTables(): " + str(ex) + "\n" + traceback.format_exc())
         return []
+
 
 def getAllCommentBtns():
     try:
@@ -170,6 +179,7 @@ def getAllCommentBtns():
         logging.error("db_connection.getAllCommentBtns(): " + str(ex) + "\n" + traceback.format_exc())
         return []
 
+
 def dropCommentBtn(comment):
     try:
         cnx = mysql_connection_pool.connection()
@@ -181,6 +191,7 @@ def dropCommentBtn(comment):
         cnx.close()
     except Exception as ex:
         logging.error("db_connection.dropCommentBtn(): " + str(ex) + "\n" + traceback.format_exc())
+
 
 def drop_table(tablename):
     cnx = mysql_connection_pool.connection()
@@ -194,4 +205,3 @@ def drop_table(tablename):
     cnx.commit()
     cursor.close()
     cnx.close()
-

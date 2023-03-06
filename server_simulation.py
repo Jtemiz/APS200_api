@@ -1,6 +1,7 @@
 import datetime
 import math
 import random
+import signal
 import socket
 import socketserver
 import threading
@@ -25,25 +26,24 @@ def runServer():
     while True:
         if index % 5 == 0:
             msg = genStatus(index)
-            print(msg)
             sock.sendto(msg, ("127.0.0.1", 5100))
         index += 1
         if measurement_active:
-            tmpstr = genMessage(index)
+            tmpstr = genMessage()
             print(tmpstr)
             sock.sendto(tmpstr, ("127.0.0.1", 5100))
         time.sleep(0.2)
 
 
-def genMessage(index):
-    str = "VALUE;{index};{position};{height};{speed}"
+def genMessage():
+    str = "VALUE;{position};{height};{speed}"
     changeVals()
-    return bytes(str.format(index=index, position=position, height=height, speed=speed), 'ascii')
+    return bytes(str.format(position=position, height=height, speed=speed), 'ascii')
 
 def genStatus(index):
-    str = "STAT;{height};{battery};{measurementActive}"
+    str = "STAT;{index};{height};{battery};{measurementActive}"
     changeVals()
-    return bytes(str.format(height=height, battery=battery, measurementActive=measurement_active), 'ascii')
+    return bytes(str.format(index=index, height=height, battery=battery, measurementActive=measurement_active), 'ascii')
 
 def changeVals():
     global height
@@ -92,9 +92,18 @@ class UDPServer(threading.Thread):
         except Exception as ex:
             print(ex)
 
+    def stop(self):
+        try:
+            self.udp_server_object.shutdown()
+            self.udp_server_object = None
+        except Exception as ex:
+            print(ex)
+
+
 def run():
     UDPServer().start()
     thread = Thread(target=runServer())
     thread.start()
+
 
 run()

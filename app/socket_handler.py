@@ -1,7 +1,3 @@
-import datetime
-import os
-import traceback
-
 import socketio
 import app.globals as glob
 import app.db_connection as db_con
@@ -28,8 +24,8 @@ async def background_task():
             'MEASUREMENT_ACTIVE': glob.MEASUREMENT_ACTIVE,
             'PAUSE_ACTIVE': glob.PAUSE_ACTIVE,
             'BATTERY_LEVEL': glob.BATTERY_LEVEL,
-            'MEASUREMENT_DISTANCE': glob.MEASUREMENT_DISTANCE,
-            'MEASUREMENT_VALUE': glob.MEASUREMENT_VALUE
+            'MEASUREMENT_VALUE': glob.MEASUREMENT_VALUE,
+            'LIMIT_VALUE': glob.LIMIT_VALUE
         })
         if glob.MEASUREMENT_ACTIVE:
             await SIO.emit('value', glob.VIEW_VALUES)
@@ -88,8 +84,8 @@ def chart_stop_pause(sid):
 @SIO.on('chart:add:comment')
 def chart_add_comment(sid, data: dict):
     try:
-        if glob.MEASUREMENT_ACTIVE and glob.RUNNING_MEASUREMENT is not None:
-            db_con.insert_comment(glob.RUNNING_MEASUREMENT, data['comment'], glob.MEASUREMENT_DISTANCE)
+        if glob.MEASUREMENT_ACTIVE:
+            db_con.insert_comment(glob.METADATA_TIMESTAMP, data['comment'], glob.MEASUREMENT_DISTANCE)
             return 'ok'
         else:
             return 'Keine Aktive Messung'
@@ -110,16 +106,22 @@ def chart_set_metaData(sid, data: dict):
         print(ex)
         return 'error', ex
 
-
+@SIO.on('chart:get:limitvalue')
+def chart_get_limitvalue(sid):
+    try:
+        return glob.LIMIT_VALUE
+    except Exception as ex:
+        print(ex)
+        return 'error', ex
 ################
 # Data Actions #
 ################
 """ :returns a specific table with all measurement values for instance on opening a measurement on the data page """
 @SIO.on('data:get:measurement')
-def data_get_measurement(sid, table_name: str):
+def data_get_measurement(sid, data: {}):
     try:
-        if isinstance(table_name, str):
-            return db_con.get_table(table_name)
+        if isinstance(data['tableName'], str):
+            return db_con.get_table(data['tableName'], data['withComments'])
         else:
             return 'bad argument'
     except Exception as ex:
@@ -152,7 +154,6 @@ def data_delete_table(sid, table_name: str):
 ####################
 # SETTINGS Actions #
 ####################
-
 @SIO.on('settings:get:commentBtns')
 def settings_get_all_comment_btns(sid):
     try:

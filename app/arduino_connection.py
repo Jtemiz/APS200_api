@@ -5,6 +5,7 @@ import threading
 import traceback
 import app.globals as glob
 from configparser import ConfigParser
+import signal
 
 config = ConfigParser()
 config.read('app/preferences.ini')
@@ -54,10 +55,9 @@ class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
         if "VALUE" in message:
             typeDataSplit = message.split(";")
             data = {
-                "index": int(typeDataSplit[1]),
-                "position": float(typeDataSplit[2]),
-                "height": float(typeDataSplit[3]),
-                "speed": float(typeDataSplit[4]),
+                "position": float(typeDataSplit[1]),
+                "height": float(typeDataSplit[2]),
+                "speed": float(typeDataSplit[3]),
                 "strWidth": glob.STREET_WIDTH,
                 "limVal": glob.LIMIT_VALUE
             }
@@ -67,8 +67,8 @@ class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
         elif "STAT" in message:
             # STAT;Hoehe;Batterie;Boolean
             typeDataSplit = message.split(";")
-            glob.HEIGHT = float(typeDataSplit[1])
-            glob.BATTERY_LEVEL = float(typeDataSplit[2])
+            glob.HEIGHT = float(typeDataSplit[2])
+            glob.BATTERY_LEVEL = float(typeDataSplit[3])
             # todo reintegrate stop measuring when battery too low
 
 
