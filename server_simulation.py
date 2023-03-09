@@ -19,6 +19,7 @@ battery = 0.99
 
 measurement_active = False
 pause_active = False
+calibration_active = True
 
 def runServer():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -68,6 +69,7 @@ class UDPMessageHandler(socketserver.DatagramRequestHandler):
         print(data)
         global measurement_active
         global position
+        global calibration_active
         if data == '070':
             measurement_active = True
         elif data == '071':
@@ -75,11 +77,12 @@ class UDPMessageHandler(socketserver.DatagramRequestHandler):
         elif data == '072':
             position = 0
         elif data == '073':
-            return
+            calibration_active = False
         elif data == '074':
-            return
+            if calibration_active:
+                print(data, 'check')
         elif data == '075':
-            return
+            calibration_active = False
 
 class UDPServer(threading.Thread):
     server_address = ("127.0.0.1", 9000)

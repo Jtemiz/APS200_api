@@ -1,3 +1,5 @@
+from configparser import ConfigParser
+
 import socketio
 import app.globals as glob
 import app.db_connection as db_con
@@ -8,6 +10,8 @@ APP = socketio.ASGIApp(SIO)
 BACKGROUND_TASK_STARTED = False
 ard_con.init_connection()
 
+config = ConfigParser()
+config.read('app/preferences.ini')
 
 @SIO.event
 def connect(sid, environ, data):
@@ -25,7 +29,10 @@ async def background_task():
             'PAUSE_ACTIVE': glob.PAUSE_ACTIVE,
             'BATTERY_LEVEL': glob.BATTERY_LEVEL,
             'MEASUREMENT_VALUE': glob.MEASUREMENT_VALUE,
-            'LIMIT_VALUE': glob.LIMIT_VALUE
+            'LIMIT_VALUE': glob.LIMIT_VALUE,
+            'CALI_ACTIVE': glob.CALIBRATION_ACTIVE,
+            'CALI_DIST_MES_ACTIVE': glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE,
+            'MEASUREMENT_DISTANCE': glob.MEASUREMENT_DISTANCE
         })
         if glob.MEASUREMENT_ACTIVE:
             await SIO.emit('value', glob.VIEW_VALUES)
@@ -116,9 +123,9 @@ def chart_get_limitvalue(sid):
 ################
 # Data Actions #
 ################
-""" :returns a specific table with all measurement values for instance on opening a measurement on the data page """
 @SIO.on('data:get:measurement')
 def data_get_measurement(sid, data: {}):
+    """ returns a specific table with all measurement values for instance on opening a measurement on the data page """
     try:
         if isinstance(data['tableName'], str):
             return db_con.get_table(data['tableName'], data['withComments'])
@@ -128,9 +135,9 @@ def data_get_measurement(sid, data: {}):
         return 'error', ex
 
 
-""" :return all available tables from the database for instance on init of data page """
 @SIO.on('data:get:allTables')
 def data_get_all_tables(sid):
+    """ return all available tables from the database for instance on init of data page """
     try:
         result = []
         for i, table in enumerate(db_con.get_all_metadata()):
@@ -176,5 +183,59 @@ def settings_delete_comment_btn(sid, comment_btn: str):
     try:
         db_con.dropCommentBtn(comment_btn)
         return 'ok'
+    except Exception as ex:
+        return 'error', ex
+
+@SIO.on('settings:start:calibration')
+def settings_start_calibration(sid, password: str):
+    try:
+        if password == config['calibration']['password']:
+            glob.CALIBRATION_ACTIVE = True
+            glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE = False
+            return config['calibration']['steps']
+        else:
+            return 'wrong password'
+    except Exception as ex:
+        return 'error', ex
+
+
+@SIO.on('settings:stop:calibration')
+def settings_stop_calibration(sid):
+    try:
+        glob.CALIBRATION_ACTIVE = False
+        glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE = False
+        return 'ok'
+    except Exception as ex:
+        return 'error', ex
+
+
+@SIO.on('settings:set:calibrationStep')
+def settings_set_calibration_step(sid, data: {}):
+    try:
+        if data['password'] == config['calibration']['password']:
+            ard_con.set_calibration_value(data['step'])
+            glob.CALIBRATION_ACTIVE = True
+        else:
+            return 'wrong password'
+    except Exception as ex:
+        return 'error', ex
+
+
+@SIO.on('settings:start:calibration:measurement')
+def settings_start_calibration_distance_measurement(sid, password):
+    try:
+        if password == config['calibration']['password']:
+            ard_con.start_calibration_distance_measuring()
+            glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE = True
+    except Exception as ex:
+        return 'error', ex
+
+
+@SIO.on('settings:stop:calibration:measurement')
+def settings_stop_calibration_distance_measurement(sid, password):
+    try:
+        if password == config['calibration']['password']:
+            ard_con.stop_calibration_distance_measuring()
+            glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE = False
     except Exception as ex:
         return 'error', ex

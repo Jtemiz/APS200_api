@@ -18,7 +18,9 @@ ARD_COMMANDS = {
     'start': '070',
     'stop': '071',
     'reset': '072',
-    'startKali': '073'
+    'startKali': '073',
+    'setKali': '074',
+    'stopKali': '075'
 }
 
 def reset_arduino():
@@ -41,11 +43,46 @@ def stop_arduino():
     except Exception as ex:
         print(ex)
 
+def start_calibration():
+    try:
+        send_message(ARD_COMMANDS['startKali'])
+    except Exception as ex:
+        print(ex)
 
-def send_message(message):
+def start_calibration_distance_measuring():
+    try:
+        send_message(ARD_COMMANDS['reset'])
+        send_message(ARD_COMMANDS['start'])
+    except Exception as ex:
+        print(ex)
+
+def stop_calibration_distance_measuring():
+    try:
+        send_message(ARD_COMMANDS['stop'])
+    except Exception as ex:
+        print(ex)
+def stop_calibration():
+    try:
+        send_message(ARD_COMMANDS['stopKali'])
+    except Exception as ex:
+        print(ex)
+
+def set_calibration_value(value: int):
+    try:
+        send_message(ARD_COMMANDS['setKali'], value)
+    except Exception as ex:
+        print(ex)
+
+
+def send_message(message, value=None):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.sendto(message.encode('ascii'), (UDP_CLIENT_IP, UDP_CLIENT_PORT))
+    if value is None:
+        msg = message
+    else:
+        msg = message + ';' + str(value)
+    sock.sendto(msg.encode('ascii'), (UDP_CLIENT_IP, UDP_CLIENT_PORT))
     sock.close()
+
 
 
 class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
@@ -67,7 +104,7 @@ class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
         elif "STAT" in message:
             # STAT;Hoehe;Batterie;Boolean
             typeDataSplit = message.split(";")
-            glob.HEIGHT = float(typeDataSplit[2])
+            glob.MEASUREMENT_VALUE = float(typeDataSplit[2])
             glob.BATTERY_LEVEL = float(typeDataSplit[3])
             # todo reintegrate stop measuring when battery too low
 
