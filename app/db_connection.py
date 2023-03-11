@@ -80,6 +80,16 @@ def insert_metadata(timestamp):
     cnx.close()
 
 
+def update_metadata(timestamp, measurement_name, username, location, notes):
+    cnx = mysql_connection_pool.connection()
+    cursor = cnx.cursor()
+    sql = "UPDATE `metadata` SET `location`=%s, `username`=%s, `measurementname`=%s, `notes`=%s WHERE `measurement`=%s"
+    cursor.execute(sql, (location, username, measurement_name, notes, timestamp))
+    cnx.commit()
+    cursor.close()
+    cnx.close()
+
+
 def insertCommentBtn(comment):
     try:
         cnx = mysql_connection_pool.connection()

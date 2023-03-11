@@ -44,6 +44,8 @@ async def background_task():
 #################
 @SIO.on('chart:start:measuring')
 def chart_start_measuring(sid, data):
+    glob.VIEW_VALUES = []
+    glob.LONGTERM_VALUES = []
     glob.METADATA_TIMESTAMP = str(data['timestamp'])
     ard_con.reset_arduino()
     ard_con.start_arduino()
@@ -108,10 +110,12 @@ def chart_set_metaData(sid, data: dict):
         glob.METADATA_USER = metaData['user']
         glob.METADATA_LOCATION = metaData['location']
         glob.METADATA_NOTES = metaData['notes']
+        glob.STREET_WIDTH = metaData['streedwidth']
         return 'ok'
     except Exception as ex:
         print(ex)
         return 'error', ex
+
 
 @SIO.on('chart:get:limitvalue')
 def chart_get_limitvalue(sid):
@@ -120,6 +124,16 @@ def chart_get_limitvalue(sid):
     except Exception as ex:
         print(ex)
         return 'error', ex
+
+@SIO.on('chart:set:limitvalue')
+def chart_set_limitvalue(sid, data):
+    try:
+        glob.LIMIT_VALUE = data
+        return 'ok'
+    except Exception as ex:
+        return 'error', ex
+
+
 ################
 # Data Actions #
 ################
@@ -156,7 +170,13 @@ def data_delete_table(sid, table_name: str):
         return 'error', ex
 
 
-# todo: create csv
+@SIO.on('data:set:metadata')
+def data_set_metadata(sid, data: {}):
+    try:
+        db_con.update_metadata(data['tableName'], data['metaData']['name'], data['metaData']['user'], data['metaData']['location'], data['metaData']['notes'])
+        return 'ok'
+    except Exception as ex:
+        return 'error', ex
 
 ####################
 # SETTINGS Actions #
