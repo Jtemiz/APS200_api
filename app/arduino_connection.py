@@ -7,7 +7,6 @@ import time
 import traceback
 import app.globals as glob
 from configparser import ConfigParser
-import signal
 
 config = ConfigParser()
 config.read('app/preferences.ini')
@@ -15,6 +14,7 @@ UDP_SERVER_IP = config['arduino']['UDP_SERVER_IP']
 UDP_SERVER_PORT = int(config['arduino']['UDP_SERVER_PORT'])
 UDP_CLIENT_IP = config['arduino']['UDP_CLIENT_IP']
 UDP_CLIENT_PORT = int(config['arduino']['UDP_CLIENT_PORT'])
+
 
 ARD_COMMANDS = {
     'start': '070',
@@ -105,10 +105,10 @@ class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
             glob.MEASUREMENT_DISTANCE = data["position"]
         elif "STAT" in message:
             # STAT;Hoehe;Batterie;Boolean
+            glob.WATCH_DOG = not glob.WATCH_DOG
             typeDataSplit = message.split(";")
             glob.MEASUREMENT_VALUE = float(typeDataSplit[2])
             glob.BATTERY_LEVEL = float(typeDataSplit[3])
-            # todo reintegrate stop measuring when battery too low
 
 
 # This class provides a multithreaded UDP server that can receive messages sent to the defined ip and port
@@ -122,12 +122,13 @@ class UDPServer(threading.Thread):
             self.udp_server_object = socketserver.ThreadingUDPServer(self.server_address, MyUDPRequestHandler)
             self.udp_server_object.serve_forever()
         except Exception as ex:
-            logging.error("UDPServer.run(): " + str(ex) + "\n" + traceback.format_exc())
+            print(ex)
 
     def stop(self):
         try:
             self.udp_server_object.shutdown()
         except Exception as ex:
+            print(ex)
             logging.error("UDPServer.stop(): " + str(ex) + "\n" + traceback.format_exc())
 
 

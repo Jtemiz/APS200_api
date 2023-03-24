@@ -15,7 +15,7 @@ position = 0
 speed = 0
 height_median = 15
 speed_max = 20
-battery = 0.99
+battery = 100
 
 measurement_active = False
 pause_active = False
@@ -57,10 +57,10 @@ def changeVals():
     else:
         speed = round(speed - random.random(), 2)
     height = round(math.sin(position) * 5, 2)
-    if battery < 0.01:
-        battery = 1
+    if battery < 1:
+        battery = 100
     else:
-        battery = round(battery - 0.01, 2)
+        battery = round(battery - 1, 2)
 
 
 class UDPMessageHandler(socketserver.DatagramRequestHandler):

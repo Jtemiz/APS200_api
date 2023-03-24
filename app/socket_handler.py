@@ -1,3 +1,4 @@
+import time
 from configparser import ConfigParser
 
 import socketio
@@ -6,12 +7,13 @@ import app.db_connection as db_con
 import app.arduino_connection as ard_con
 
 SIO = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
-APP = socketio.ASGIApp(SIO)
+APP = socketio.ASGIApp(SIO, on_shutdown=ard_con.SUDPServer.stop_server)
 BACKGROUND_TASK_STARTED = False
 ard_con.init_connection()
 
 config = ConfigParser()
 config.read('app/preferences.ini')
+
 
 @SIO.event
 def connect(sid, environ, data):
@@ -32,30 +34,42 @@ async def background_task():
             'LIMIT_VALUE': glob.LIMIT_VALUE,
             'CALI_ACTIVE': glob.CALIBRATION_ACTIVE,
             'CALI_DIST_MES_ACTIVE': glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE,
-            'MEASUREMENT_DISTANCE': glob.MEASUREMENT_DISTANCE
+            'MEASUREMENT_DISTANCE': glob.MEASUREMENT_DISTANCE,
+            'WATCH_DOG': glob.WATCH_DOG
         })
         if glob.MEASUREMENT_ACTIVE:
             await SIO.emit('value', glob.VIEW_VALUES)
             glob.VIEW_VALUES = []
-
+            print(glob.BATTERY_LEVEL)
+            if glob.BATTERY_LEVEL < 5:
+                await chart_stop_measuring()
+                await SIO.emit('info', 'Messung wurde aufgrund zu geringer Batteriespannung beendet')
 
 #################
 # Chart Actions #
 #################
 @SIO.on('chart:start:measuring')
-def chart_start_measuring(sid, data):
-    glob.VIEW_VALUES = []
-    glob.LONGTERM_VALUES = []
-    glob.METADATA_TIMESTAMP = str(data['timestamp'])
-    ard_con.reset_arduino()
-    ard_con.start_arduino()
-    glob.MEASUREMENT_ACTIVE = True
-    glob.PAUSE_ACTIVE = False
+async def chart_start_measuring(sid, data):
+    try:
+        if glob.BATTERY_LEVEL > 5:
+            glob.VIEW_VALUES = []
+            glob.LONGTERM_VALUES = []
+            glob.METADATA_TIMESTAMP = str(data['timestamp'])
+            ard_con.reset_arduino()
+            ard_con.start_arduino()
+            glob.MEASUREMENT_ACTIVE = True
+            glob.PAUSE_ACTIVE = False
+            await SIO.emit('info', 'Messung wurde gestartet')
+        else:
+            await SIO.emit('info', 'Messung konnte aufgrund zu geringer Batteriespannung nicht gestartet werden')
+    except Exception as ex:
+        chart_stop_measuring()
+        await SIO.emit('error', 'Messung konnte nicht gestartet werden')
     return 'ok'
 
 
 @SIO.on('chart:stop:measuring')
-def chart_stop_measuring(sid):
+async def chart_stop_measuring(sid=None):
     try:
         ard_con.stop_arduino()
         db_con.create_table(glob.METADATA_TIMESTAMP)
@@ -66,40 +80,48 @@ def chart_stop_measuring(sid):
         glob.MEASUREMENT_DISTANCE = 0.0
         glob.MEASUREMENT_ACTIVE = False
         glob.PAUSE_ACTIVE = False
+        await SIO.emit('info', 'Messung wurde beendet')
         return 'ok'
     except Exception as ex:
-        print(ex)
-        return 'error', ex
+        await SIO.emit('error', 'Messung konnte nicht zuverlässig gestoppt werden')
 
 
 @SIO.on('chart:start:pause')
-def chart_start_pause(sid):
-    ard_con.stop_arduino()
-    db_con.create_table(glob.METADATA_TIMESTAMP)
-    db_con.insert_table(glob.METADATA_TIMESTAMP)
-    glob.VIEW_VALUES = []
-    glob.LONGTERM_VALUES = []
-    glob.PAUSE_ACTIVE = True
-    return 'ok'
+async def chart_start_pause(sid):
+    try:
+        ard_con.stop_arduino()
+        db_con.create_table(glob.METADATA_TIMESTAMP)
+        db_con.insert_table(glob.METADATA_TIMESTAMP)
+        glob.VIEW_VALUES = []
+        glob.LONGTERM_VALUES = []
+        glob.PAUSE_ACTIVE = True
+        await SIO.emit('info', 'Messung pausiert')
+        return 'ok'
+    except Exception as ex:
+        await SIO.emit('error', 'Pausieren der Messung fehlgeschlagen')
 
 
 @SIO.on('chart:stop:pause')
-def chart_stop_pause(sid):
-    ard_con.start_arduino()
-    glob.PAUSE_ACTIVE = False
-    return 'ok'
+async def chart_stop_pause(sid):
+    try:
+        ard_con.start_arduino()
+        glob.PAUSE_ACTIVE = False
+        return 'ok'
+    except Exception as ex:
+        await SIO.emit('error', 'Fortsetzung der Messung fehlgeschlagen')
 
 
 @SIO.on('chart:add:comment')
-def chart_add_comment(sid, data: dict):
+async def chart_add_comment(sid, data: dict):
     try:
         if glob.MEASUREMENT_ACTIVE:
             db_con.insert_comment(glob.METADATA_TIMESTAMP, data['comment'], glob.MEASUREMENT_DISTANCE)
+            await SIO.emit('info', 'Kommentar ' + data['comment'] + ' wurde an Station ' + str(glob.MEASUREMENT_DISTANCE) + ' m hinzugefügt')
             return 'ok'
         else:
-            return 'Keine Aktive Messung'
+            await SIO.emit('info', 'Keine aktive Messung')
     except Exception as ex:
-        return 'error', ex
+        await SIO.emit('error', 'Hinzufügen des Kommentars fehlgeschlagen')
 
 
 @SIO.on('chart:set:metadata')
@@ -126,11 +148,13 @@ def chart_get_limitvalue(sid):
         return 'error', ex
 
 @SIO.on('chart:set:limitvalue')
-def chart_set_limitvalue(sid, data):
+async def chart_set_limitvalue(sid, data):
     try:
         glob.LIMIT_VALUE = data
+        await SIO.emit('info', 'Grenzwert auf ' + str(data) + 'mm geändert')
         return 'ok'
     except Exception as ex:
+        await SIO.emit('error', 'Ändern des Grenzwerts fehlgeschlagen')
         return 'error', ex
 
 
@@ -162,20 +186,22 @@ def data_get_all_tables(sid):
 
 
 @SIO.on('data:delete:table')
-def data_delete_table(sid, table_name: str):
+async def data_delete_table(sid, table_name: str):
     try:
         db_con.drop_table(table_name)
         return 'ok'
     except Exception as ex:
+        await SIO.emit('error', 'Löschen der Messung fehlgeschlagen')
         return 'error', ex
 
 
 @SIO.on('data:set:metadata')
-def data_set_metadata(sid, data: {}):
+async def data_set_metadata(sid, data: {}):
     try:
         db_con.update_metadata(data['tableName'], data['metaData']['name'], data['metaData']['user'], data['metaData']['location'], data['metaData']['notes'])
         return 'ok'
     except Exception as ex:
+        await SIO.emit('error', 'Ändern der Messung fehlgeschlagen')
         return 'error', ex
 
 ####################
@@ -190,20 +216,22 @@ def settings_get_all_comment_btns(sid):
 
 
 @SIO.on('settings:add:commentBtn')
-def settings_add_comment_btn(sid, comment_btn: str):
+async def settings_add_comment_btn(sid, comment_btn: str):
     try:
         db_con.insertCommentBtn(comment_btn)
         return 'ok'
     except Exception as ex:
+        await SIO.emit('error', 'Hinzufügen des Kommentarbuttons fehlgeschlagen')
         return 'error', ex
 
 
 @SIO.on('settings:delete:commentBtn')
-def settings_delete_comment_btn(sid, comment_btn: str):
+async def settings_delete_comment_btn(sid, comment_btn: str):
     try:
         db_con.dropCommentBtn(comment_btn)
         return 'ok'
     except Exception as ex:
+        await SIO.emit('error', 'Löschen des Kommentarbuttons fehlgeschlagen')
         return 'error', ex
 
 @SIO.on('settings:start:calibration')

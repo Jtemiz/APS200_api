@@ -8,5 +8,12 @@
       <jdbc-url>jdbc:mysql://localhost:3306/aps200</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+    <data-source source="LOCAL" name="aps200@192.168.4.1" uuid="0e9d4e3f-a530-423b-afac-623c649bca7c">
+      <driver-ref>mariadb</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.mariadb.jdbc.Driver</jdbc-driver>
+      <jdbc-url>jdbc:mariadb://192.168.4.1:3306/aps200</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>
