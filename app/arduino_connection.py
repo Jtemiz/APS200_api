@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import logging
 import socket
@@ -7,6 +8,7 @@ import time
 import traceback
 import app.globals as glob
 from configparser import ConfigParser
+from statistics import mode
 
 config = ConfigParser()
 config.read('app/preferences.ini')
@@ -14,7 +16,7 @@ UDP_SERVER_IP = config['arduino']['UDP_SERVER_IP']
 UDP_SERVER_PORT = int(config['arduino']['UDP_SERVER_PORT'])
 UDP_CLIENT_IP = config['arduino']['UDP_CLIENT_IP']
 UDP_CLIENT_PORT = int(config['arduino']['UDP_CLIENT_PORT'])
-
+logger = logging.getLogger()
 
 ARD_COMMANDS = {
     'start': '070',
@@ -29,51 +31,57 @@ def reset_arduino():
     try:
         send_message(ARD_COMMANDS['reset'])
     except Exception as ex:
-        print(ex)
+        logger.error(ex, exc_info=True)
 
 
 def start_arduino():
     try:
         send_message(ARD_COMMANDS['start'])
     except Exception as ex:
-        print(ex)
+        logger.error(ex, exc_info=True)
 
 
 def stop_arduino():
     try:
         send_message(ARD_COMMANDS['stop'])
     except Exception as ex:
-        print(ex)
+        logger.error(ex, exc_info=True)
+
 
 def start_calibration():
     try:
         send_message(ARD_COMMANDS['startKali'])
     except Exception as ex:
-        print(ex)
+        logger.error(ex, exc_info=True)
+
 
 def start_calibration_distance_measuring():
     try:
         send_message(ARD_COMMANDS['reset'])
         send_message(ARD_COMMANDS['start'])
     except Exception as ex:
-        print(ex)
+        logger.error(ex, exc_info=True)
+
 
 def stop_calibration_distance_measuring():
     try:
         send_message(ARD_COMMANDS['stop'])
     except Exception as ex:
-        print(ex)
+        logger.error(ex, exc_info=True)
+
+
 def stop_calibration():
     try:
         send_message(ARD_COMMANDS['stopKali'])
     except Exception as ex:
-        print(ex)
+        logger.error(ex, exc_info=True)
+
 
 def set_calibration_value(value: int):
     try:
         send_message(ARD_COMMANDS['setKali'], value)
     except Exception as ex:
-        print(ex)
+        logger.error(ex, exc_info=True)
 
 
 def send_message(message, value=None):
@@ -86,11 +94,9 @@ def send_message(message, value=None):
     sock.close()
 
 
-
 class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
     def handle(self):
         message = self.rfile.readline().strip().decode('UTF-8')
-        print(message)
         if "VALUE" in message:
             typeDataSplit = message.split(";")
             data = {
@@ -103,12 +109,17 @@ class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
             glob.VIEW_VALUES.append(data)
             glob.LONGTERM_VALUES.append(data)
             glob.MEASUREMENT_DISTANCE = data["position"]
+            if data["height"] > data["limVal"]:
+                generate_beep()
         elif "STAT" in message:
             # STAT;Hoehe;Batterie;Boolean
             glob.WATCH_DOG = not glob.WATCH_DOG
             typeDataSplit = message.split(";")
             glob.MEASUREMENT_VALUE = float(typeDataSplit[2])
-            glob.BATTERY_LEVEL = float(typeDataSplit[3])
+            glob.BATTERY_LEVEL_ENUM.append(float(typeDataSplit[3]))
+            if len(glob.BATTERY_LEVEL_ENUM) > 20:
+                glob.BATTERY_LEVEL_ENUM.pop(0)
+            glob.BATTERY_LEVEL = mode(glob.BATTERY_LEVEL_ENUM)
 
 
 # This class provides a multithreaded UDP server that can receive messages sent to the defined ip and port
@@ -118,7 +129,7 @@ class UDPServer(threading.Thread):
 
     def run(self):
         try:
-            logging.info("RunUDPServer")
+            logger.info("RunUDPServer")
             self.udp_server_object = socketserver.ThreadingUDPServer(self.server_address, MyUDPRequestHandler)
             self.udp_server_object.serve_forever()
         except Exception as ex:
@@ -129,7 +140,7 @@ class UDPServer(threading.Thread):
             self.udp_server_object.shutdown()
         except Exception as ex:
             print(ex)
-            logging.error("UDPServer.stop(): " + str(ex) + "\n" + traceback.format_exc())
+            logger.error("UDPServer.stop(): " + str(ex) + "\n" + traceback.format_exc())
 
 
 class SUDPServer():
@@ -137,7 +148,7 @@ class SUDPServer():
 
     @staticmethod
     def start_server():
-        logging.info("StartSUDPServer")
+        logger.info("StartSUDPServer")
         if SUDPServer.__server == None:
             SUDPServer()
             SUDPServer.__server.start()
@@ -157,4 +168,11 @@ def init_connection():
     try:
         SUDPServer.start_server()
     except Exception as ex:
-        print(ex)
+        logger.error(ex, exc_info=True)
+def generate_beep():
+    try:
+        from app.socket_handler import SIO
+        asyncio.run(SIO.emit('beep'))
+    except Exception as ex:
+        logger.error(ex, exc_info=True)
+

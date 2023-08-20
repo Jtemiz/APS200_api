@@ -1,5 +1,6 @@
 import time
 from configparser import ConfigParser
+import logging
 
 import socketio
 import app.globals as glob
@@ -8,6 +9,14 @@ import app.arduino_connection as ard_con
 
 SIO = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 APP = socketio.ASGIApp(SIO, on_shutdown=ard_con.SUDPServer.stop_server)
+logging.basicConfig(
+    filename='app.log',
+    filemode='a',
+    level=logging.INFO
+)
+logger = logging.getLogger()
+
+
 BACKGROUND_TASK_STARTED = False
 ard_con.init_connection()
 
@@ -15,12 +24,17 @@ config = ConfigParser()
 config.read('app/preferences.ini')
 
 
+
 @SIO.event
 def connect(sid, environ, data):
-    global BACKGROUND_TASK_STARTED
-    if not BACKGROUND_TASK_STARTED:
-        SIO.start_background_task(background_task)
-        BACKGROUND_TASK_STARTED = True
+    try:
+        logger.info('frontend connected')
+        global BACKGROUND_TASK_STARTED
+        if not BACKGROUND_TASK_STARTED:
+            SIO.start_background_task(background_task)
+            BACKGROUND_TASK_STARTED = True
+    except Exception as ex:
+        logger.error(ex, exc_info=True)
 
 
 async def background_task():
@@ -40,8 +54,7 @@ async def background_task():
         if glob.MEASUREMENT_ACTIVE:
             await SIO.emit('value', glob.VIEW_VALUES)
             glob.VIEW_VALUES = []
-            print(glob.BATTERY_LEVEL)
-            if glob.BATTERY_LEVEL < 5:
+            if glob.BATTERY_LEVEL < 1:
                 await chart_stop_measuring()
                 await SIO.emit('info', 'Messung wurde aufgrund zu geringer Batteriespannung beendet')
 
@@ -60,12 +73,13 @@ async def chart_start_measuring(sid, data):
             glob.MEASUREMENT_ACTIVE = True
             glob.PAUSE_ACTIVE = False
             await SIO.emit('info', 'Messung wurde gestartet')
+            logger.info('measurement started')
         else:
             await SIO.emit('info', 'Messung konnte aufgrund zu geringer Batteriespannung nicht gestartet werden')
     except Exception as ex:
-        chart_stop_measuring()
+        await chart_stop_measuring()
         await SIO.emit('error', 'Messung konnte nicht gestartet werden')
-    return 'ok'
+        logger.error(ex, exc_info=True)
 
 
 @SIO.on('chart:stop:measuring')
@@ -81,9 +95,11 @@ async def chart_stop_measuring(sid=None):
         glob.MEASUREMENT_ACTIVE = False
         glob.PAUSE_ACTIVE = False
         await SIO.emit('info', 'Messung wurde beendet')
+        logger.info('measurement stopped')
         return 'ok'
     except Exception as ex:
         await SIO.emit('error', 'Messung konnte nicht zuverlässig gestoppt werden')
+        logger.error(ex, exc_info=True)
 
 
 @SIO.on('chart:start:pause')
@@ -96,9 +112,11 @@ async def chart_start_pause(sid):
         glob.LONGTERM_VALUES = []
         glob.PAUSE_ACTIVE = True
         await SIO.emit('info', 'Messung pausiert')
+        logger.info('measurement pause started')
         return 'ok'
     except Exception as ex:
         await SIO.emit('error', 'Pausieren der Messung fehlgeschlagen')
+        logger.error(ex, exc_info=True)
 
 
 @SIO.on('chart:stop:pause')
@@ -106,9 +124,11 @@ async def chart_stop_pause(sid):
     try:
         ard_con.start_arduino()
         glob.PAUSE_ACTIVE = False
+        logger.info('measurement pause stopped')
         return 'ok'
     except Exception as ex:
         await SIO.emit('error', 'Fortsetzung der Messung fehlgeschlagen')
+        logger.error(ex, exc_info=True)
 
 
 @SIO.on('chart:add:comment')
@@ -117,15 +137,17 @@ async def chart_add_comment(sid, data: dict):
         if glob.MEASUREMENT_ACTIVE:
             db_con.insert_comment(glob.METADATA_TIMESTAMP, data['comment'], glob.MEASUREMENT_DISTANCE)
             await SIO.emit('info', 'Kommentar ' + data['comment'] + ' wurde an Station ' + str(glob.MEASUREMENT_DISTANCE) + ' m hinzugefügt')
+            logger.info('comment ' + data['comment'] + ' added')
             return 'ok'
         else:
             await SIO.emit('info', 'Keine aktive Messung')
     except Exception as ex:
         await SIO.emit('error', 'Hinzufügen des Kommentars fehlgeschlagen')
+        logger.error(ex, exc_info=True)
 
 
 @SIO.on('chart:set:metadata')
-def chart_set_metaData(sid, data: dict):
+async def chart_set_metaData(sid, data: dict):
     try:
         metaData = data['metaData']
         glob.METADATA_NAME = metaData['name']
@@ -133,29 +155,31 @@ def chart_set_metaData(sid, data: dict):
         glob.METADATA_LOCATION = metaData['location']
         glob.METADATA_NOTES = metaData['notes']
         glob.STREET_WIDTH = metaData['streedwidth']
+        logger.info('metadata changed')
         return 'ok'
     except Exception as ex:
-        print(ex)
-        return 'error', ex
+        await SIO.emit('error', 'Metadaten setzen fehlgeschlagen')
+        logger.error(ex, exc_info=True)
 
 
 @SIO.on('chart:get:limitvalue')
-def chart_get_limitvalue(sid):
+async def chart_get_limitvalue(sid):
     try:
         return glob.LIMIT_VALUE
     except Exception as ex:
-        print(ex)
-        return 'error', ex
+        await SIO.emit('error', 'Grenzwert kann nicht aufgerufen werden')
+        logger.error(ex, exc_info=True)
 
 @SIO.on('chart:set:limitvalue')
 async def chart_set_limitvalue(sid, data):
     try:
         glob.LIMIT_VALUE = data
         await SIO.emit('info', 'Grenzwert auf ' + str(data) + 'mm geändert')
+        logger.info('limitval changed')
         return 'ok'
     except Exception as ex:
         await SIO.emit('error', 'Ändern des Grenzwerts fehlgeschlagen')
-        return 'error', ex
+        logger.error(ex, exc_info=True)
 
 
 ################
@@ -170,6 +194,7 @@ def data_get_measurement(sid, data: {}):
         else:
             return 'bad argument'
     except Exception as ex:
+        logger.error(ex, exc_info=True)
         return 'error', ex
 
 
@@ -182,6 +207,7 @@ def data_get_all_tables(sid):
             result.append({'id': i+1, 'location': table[1], 'distance': table[2], 'user': table[3], 'name': table[4], 'notes': table[5], 'date': table[0]})
         return result
     except Exception as ex:
+        logger.error(ex, exc_info=True)
         return 'error', ex
 
 
@@ -191,6 +217,7 @@ async def data_delete_table(sid, table_name: str):
         db_con.drop_table(table_name)
         return 'ok'
     except Exception as ex:
+        logger.error(ex, exc_info=True)
         await SIO.emit('error', 'Löschen der Messung fehlgeschlagen')
         return 'error', ex
 
@@ -201,6 +228,7 @@ async def data_set_metadata(sid, data: {}):
         db_con.update_metadata(data['tableName'], data['metaData']['name'], data['metaData']['user'], data['metaData']['location'], data['metaData']['notes'])
         return 'ok'
     except Exception as ex:
+        logger.error(ex, exc_info=True)
         await SIO.emit('error', 'Ändern der Messung fehlgeschlagen')
         return 'error', ex
 
@@ -212,6 +240,7 @@ def settings_get_all_comment_btns(sid):
     try:
         return db_con.getAllCommentBtns()
     except Exception as ex:
+        logger.error(ex, exc_info=True)
         return 'error', ex
 
 
@@ -222,6 +251,7 @@ async def settings_add_comment_btn(sid, comment_btn: str):
         return 'ok'
     except Exception as ex:
         await SIO.emit('error', 'Hinzufügen des Kommentarbuttons fehlgeschlagen')
+        logger.error(ex, exc_info=True)
         return 'error', ex
 
 
@@ -232,28 +262,33 @@ async def settings_delete_comment_btn(sid, comment_btn: str):
         return 'ok'
     except Exception as ex:
         await SIO.emit('error', 'Löschen des Kommentarbuttons fehlgeschlagen')
+        logger.error(ex, exc_info=True)
         return 'error', ex
 
 @SIO.on('settings:start:calibration')
 def settings_start_calibration(sid, password: str):
     try:
         if password == config['calibration']['password']:
+            ard_con.start_calibration()
             glob.CALIBRATION_ACTIVE = True
             glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE = False
             return config['calibration']['steps']
         else:
             return 'wrong password'
     except Exception as ex:
+        logger.error(ex, exc_info=True)
         return 'error', ex
 
 
 @SIO.on('settings:stop:calibration')
 def settings_stop_calibration(sid):
     try:
+        ard_con.stop_calibration()
         glob.CALIBRATION_ACTIVE = False
         glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE = False
         return 'ok'
     except Exception as ex:
+        logger.error(ex, exc_info=True)
         return 'error', ex
 
 
@@ -266,6 +301,7 @@ def settings_set_calibration_step(sid, data: {}):
         else:
             return 'wrong password'
     except Exception as ex:
+        logger.error(ex, exc_info=True)
         return 'error', ex
 
 
@@ -276,6 +312,7 @@ def settings_start_calibration_distance_measurement(sid, password):
             ard_con.start_calibration_distance_measuring()
             glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE = True
     except Exception as ex:
+        logger.error(ex, exc_info=True)
         return 'error', ex
 
 
@@ -286,4 +323,5 @@ def settings_stop_calibration_distance_measurement(sid, password):
             ard_con.stop_calibration_distance_measuring()
             glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE = False
     except Exception as ex:
+        logger.error(ex, exc_info=True)
         return 'error', ex
