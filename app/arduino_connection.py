@@ -30,6 +30,7 @@ ARD_COMMANDS = {
 def reset_arduino():
     try:
         send_message(ARD_COMMANDS['reset'])
+        logger.info('arduino reset')
     except Exception as ex:
         logger.error(ex, exc_info=True)
 
@@ -37,6 +38,7 @@ def reset_arduino():
 def start_arduino():
     try:
         send_message(ARD_COMMANDS['start'])
+        logger.info('arduino start')
     except Exception as ex:
         logger.error(ex, exc_info=True)
 
@@ -51,6 +53,7 @@ def stop_arduino():
 def start_calibration():
     try:
         send_message(ARD_COMMANDS['startKali'])
+        logger.info('arduino start cali')
     except Exception as ex:
         logger.error(ex, exc_info=True)
 
@@ -59,6 +62,7 @@ def start_calibration_distance_measuring():
     try:
         send_message(ARD_COMMANDS['reset'])
         send_message(ARD_COMMANDS['start'])
+        logger.info('arduino start cali dist')
     except Exception as ex:
         logger.error(ex, exc_info=True)
 
@@ -66,6 +70,7 @@ def start_calibration_distance_measuring():
 def stop_calibration_distance_measuring():
     try:
         send_message(ARD_COMMANDS['stop'])
+        logger.info('arduino stop cali dist')
     except Exception as ex:
         logger.error(ex, exc_info=True)
 
@@ -73,6 +78,15 @@ def stop_calibration_distance_measuring():
 def stop_calibration():
     try:
         send_message(ARD_COMMANDS['stopKali'])
+        logger.info('arduino stop cali')
+    except Exception as ex:
+        logger.error(ex, exc_info=True)
+
+
+def abort_calibration():
+    try:
+        send_message(ARD_COMMANDS['stop'])
+        logger.info('arduino abort cali')
     except Exception as ex:
         logger.error(ex, exc_info=True)
 
@@ -80,6 +94,7 @@ def stop_calibration():
 def set_calibration_value(value: int):
     try:
         send_message(ARD_COMMANDS['setKali'], value)
+        logger.info('arduino set val')
     except Exception as ex:
         logger.error(ex, exc_info=True)
 
@@ -133,14 +148,14 @@ class UDPServer(threading.Thread):
             self.udp_server_object = socketserver.ThreadingUDPServer(self.server_address, MyUDPRequestHandler)
             self.udp_server_object.serve_forever()
         except Exception as ex:
-            print(ex)
+            logger.error(ex, exc_info=True)
 
     def stop(self):
         try:
             self.udp_server_object.shutdown()
         except Exception as ex:
             print(ex)
-            logger.error("UDPServer.stop(): " + str(ex) + "\n" + traceback.format_exc())
+            logger.error(ex, exc_info=True)
 
 
 class SUDPServer():

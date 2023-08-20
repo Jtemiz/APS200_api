@@ -64,7 +64,7 @@ async def background_task():
 @SIO.on('chart:start:measuring')
 async def chart_start_measuring(sid, data):
     try:
-        if glob.BATTERY_LEVEL > 5:
+        if glob.BATTERY_LEVEL > 3:
             glob.VIEW_VALUES = []
             glob.LONGTERM_VALUES = []
             glob.METADATA_TIMESTAMP = str(data['timestamp'])
@@ -83,7 +83,7 @@ async def chart_start_measuring(sid, data):
 
 
 @SIO.on('chart:stop:measuring')
-async def chart_stop_measuring(sid=None):
+async def chart_stop_measuring(sid):
     try:
         ard_con.stop_arduino()
         db_con.create_table(glob.METADATA_TIMESTAMP)
@@ -291,6 +291,16 @@ def settings_stop_calibration(sid):
         logger.error(ex, exc_info=True)
         return 'error', ex
 
+@SIO.on('settings:abort:calibration')
+def settings_abort_calibration(sid):
+    try:
+        ard_con.abort_calibration()
+        glob.CALIBRATION_ACTIVE = False
+        glob.CALIBRATION_DISTANCE_MEASURING_ACTIVE = False
+        return 'ok'
+    except Exception as ex:
+        logger.error(ex, exc_info=True)
+        return 'error', ex
 
 @SIO.on('settings:set:calibrationStep')
 def settings_set_calibration_step(sid, data: {}):

@@ -5,6 +5,9 @@ import pymysql
 from dbutils.persistent_db import PersistentDB
 import app.globals as glob
 from configparser import ConfigParser
+import logging
+
+logger = logging.getLogger()
 
 config = ConfigParser()
 config.read('app/preferences.ini')
@@ -42,6 +45,7 @@ def insert_table(tableName):
     cnx.commit()
     cursor.close()
     cnx.close()
+    logger.info('table in database inserted')
 
 
 def insert_comment(table_name, comment, position):
@@ -65,7 +69,7 @@ def insert_comment(table_name, comment, position):
                 cnx.close()
                 return 'Comment updated'
             except Exception as ex:
-                logging.error("db_connection.insertComment(): " + str(ex) +
+                logger.error("db_connection.insertComment(): " + str(ex) +
                               "\n" + traceback.format_exc())
 
 
@@ -100,7 +104,7 @@ def insertCommentBtn(comment):
         cursor.close()
         cnx.close()
     except Exception as ex:
-        logging.error("db_connection.insertCommentBtn(): " + str(ex) + "\n" + traceback.format_exc())
+        logger.error("db_connection.insertCommentBtn(): " + str(ex) + "\n" + traceback.format_exc())
 
 
 def get_table(table_name, with_comments):
@@ -122,7 +126,7 @@ def get_table(table_name, with_comments):
         cnx.close()
         return result
     except Exception as ex:
-        logging.error("db_connection.getTable(): " + str(ex) + "\n" + traceback.format_exc())
+        logger.error("db_connection.getTable(): " + str(ex) + "\n" + traceback.format_exc())
         return []
 
 
@@ -137,7 +141,7 @@ def getComments(tablename):
         cnx.close()
         return result
     except Exception as ex:
-        logging.error("db_connection.getComments(): " + str(ex) + "\n" + traceback.format_exc())
+        logger.error("db_connection.getComments(): " + str(ex) + "\n" + traceback.format_exc())
         return []
 
 
@@ -152,7 +156,7 @@ def getMetadata(tablename):
         cnx.close()
         return result
     except Exception as ex:
-        logging.error("db_connection.getMetadata(): " + str(ex) + "\n" + traceback.format_exc())
+        logger.error("db_connection.getMetadata(): " + str(ex) + "\n" + traceback.format_exc())
         return []
 
 
@@ -168,7 +172,7 @@ def get_all_metadata():
         print(result)
         return result
     except Exception as ex:
-        logging.error("db_connection.getAllTables(): " + str(ex) + "\n" + traceback.format_exc())
+        logger.error("db_connection.getAllTables(): " + str(ex) + "\n" + traceback.format_exc())
         return []
 
 
@@ -186,7 +190,7 @@ def getAllCommentBtns():
             coms.append(com[0])
         return coms
     except Exception as ex:
-        logging.error("db_connection.getAllCommentBtns(): " + str(ex) + "\n" + traceback.format_exc())
+        logger.error("db_connection.getAllCommentBtns(): " + str(ex) + "\n" + traceback.format_exc())
         return []
 
 
@@ -200,7 +204,7 @@ def dropCommentBtn(comment):
         cursor.close()
         cnx.close()
     except Exception as ex:
-        logging.error("db_connection.dropCommentBtn(): " + str(ex) + "\n" + traceback.format_exc())
+        logger.error("db_connection.dropCommentBtn(): " + str(ex) + "\n" + traceback.format_exc())
 
 
 def drop_table(tablename):

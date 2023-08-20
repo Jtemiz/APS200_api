@@ -15,7 +15,7 @@ position = 0
 speed = 0
 height_median = 15
 speed_max = 20
-battery = 100
+battery = 50
 
 measurement_active = False
 pause_active = False
@@ -33,7 +33,7 @@ def runServer():
             tmpstr = genMessage()
             print(tmpstr)
             sock.sendto(tmpstr, ("127.0.0.1", 5100))
-        time.sleep(0.2)
+        time.sleep(0.001)
 
 
 def genMessage():
@@ -50,23 +50,18 @@ def changeVals():
     global height
     global position
     global speed
-    global battery
     position = round(position + 0.1, 2)
     if speed < speed_max:
         speed = round(speed + random.random(), 2)
     else:
         speed = round(speed - random.random(), 2)
     height = round(math.sin(position) * 5, 2)
-    if battery < 1:
-        battery = 100
-    else:
-        battery = round(battery - 1, 2)
+
 
 
 class UDPMessageHandler(socketserver.DatagramRequestHandler):
     def handle(self):
         data = self.rfile.readline().strip().decode('UTF-8')
-        print(data)
         global measurement_active
         global position
         global calibration_active
