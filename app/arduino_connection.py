@@ -18,6 +18,7 @@ UDP_CLIENT_IP = config['arduino']['UDP_CLIENT_IP']
 UDP_CLIENT_PORT = int(config['arduino']['UDP_CLIENT_PORT'])
 logger = logging.getLogger()
 
+
 ARD_COMMANDS = {
     'start': '070',
     'stop': '071',
@@ -46,6 +47,7 @@ def start_arduino():
 def stop_arduino():
     try:
         send_message(ARD_COMMANDS['stop'])
+        logger.info('arduino stop')
     except Exception as ex:
         logger.error(ex, exc_info=True)
 
@@ -100,13 +102,16 @@ def set_calibration_value(value: int):
 
 
 def send_message(message, value=None):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    if value is None:
-        msg = message
-    else:
-        msg = message + ';' + str(value)
-    sock.sendto(msg.encode('ascii'), (UDP_CLIENT_IP, UDP_CLIENT_PORT))
-    sock.close()
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        if value is None:
+            msg = message
+        else:
+            msg = message + ';' + str(value)
+        sock.sendto(msg.encode('ascii'), (UDP_CLIENT_IP, UDP_CLIENT_PORT))
+        sock.close()
+    except Exception as ex:
+        logger.error(ex, exc_info=True)
 
 
 class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
