@@ -119,12 +119,17 @@ class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
         message = self.rfile.readline().strip().decode('UTF-8')
         if "VALUE" in message:
             typeDataSplit = message.split(";")
+            if glob.ACTIVE_COM_FUNCTION is not None:
+                if glob.ACTIVE_COM_FUNCTION['changeLimitValueFor'] <= 0:
+                    glob.ACTIVE_COM_FUNCTION = None
+                else:
+                    glob.ACTIVE_COM_FUNCTION['changeLimitValueFor'] -= 0.1
             data = {
                 "position": float(typeDataSplit[1]),
                 "height": float(typeDataSplit[2]),
                 "speed": float(typeDataSplit[3]),
                 "strWidth": glob.STREET_WIDTH,
-                "limVal": glob.LIMIT_VALUE
+                "limVal": glob.LIMIT_VALUE if glob.ACTIVE_COM_FUNCTION is None else glob.ACTIVE_COM_FUNCTION['changeLimitValueTo']
             }
             glob.VIEW_VALUES.append(data)
             glob.LONGTERM_VALUES.append(data)

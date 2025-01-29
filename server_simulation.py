@@ -33,7 +33,7 @@ def runServer():
             tmpstr = genMessage()
             print(tmpstr)
             sock.sendto(tmpstr, ("127.0.0.1", 5100))
-        time.sleep(0.001)
+        time.sleep(0.06)
 
 
 def genMessage():

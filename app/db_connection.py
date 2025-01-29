@@ -94,12 +94,25 @@ def update_metadata(timestamp, measurement_name, username, location, notes):
     cnx.close()
 
 
-def insertCommentBtn(comment):
+def insert_comment_btn(comment):
     try:
         cnx = mysql_connection_pool.connection()
         cursor = cnx.cursor()
-        sql = "INSERT IGNORE INTO `commentBtns` VALUE (%s)"
+        sql = "INSERT IGNORE INTO `commentBtns` VALUE (%s, null, null)"
         cursor.execute(sql, comment)
+        cnx.commit()
+        cursor.close()
+        cnx.close()
+    except Exception as ex:
+        logger.error("db_connection.insertCommentBtn(): " + str(ex) + "\n" + traceback.format_exc())
+
+
+def insert_comment_btn_with_function(comment, changeLimitValueTo, changeLimitValueFor):
+    try:
+        cnx = mysql_connection_pool.connection()
+        cursor = cnx.cursor()
+        sql = "INSERT IGNORE INTO `commentBtns` VALUE (%s, %s, %s)"
+        cursor.execute(sql, (comment, changeLimitValueTo, changeLimitValueFor))
         cnx.commit()
         cursor.close()
         cnx.close()
@@ -187,7 +200,7 @@ def getAllCommentBtns():
         cnx.close()
         coms = []
         for com in result:
-            coms.append(com[0])
+            coms.append({'content': com[0], 'changeLimitValueTo': com[1], 'changeLimitValueFor': com[2]})
         return coms
     except Exception as ex:
         logger.error("db_connection.getAllCommentBtns(): " + str(ex) + "\n" + traceback.format_exc())

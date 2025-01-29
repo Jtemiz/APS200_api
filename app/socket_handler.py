@@ -6,6 +6,7 @@ import socketio
 import app.globals as glob
 import app.db_connection as db_con
 import app.arduino_connection as ard_con
+from app.globals import VALUE_ADAPTIONS, ACTIVE_COM_FUNCTION
 
 SIO = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 APP = socketio.ASGIApp(SIO, on_shutdown=ard_con.SUDPServer.stop_server)
@@ -94,6 +95,8 @@ async def chart_stop_measuring(sid):
         glob.MEASUREMENT_DISTANCE = 0.0
         glob.MEASUREMENT_ACTIVE = False
         glob.PAUSE_ACTIVE = False
+        glob.ACTIVE_COM_FUNCTION = None
+        glob.VALUE_ADAPTIONS = []
         await SIO.emit('info', 'Messung wurde beendet')
         logger.info('measurement stopped')
         return 'ok'
@@ -137,6 +140,22 @@ async def chart_add_comment(sid, data: dict):
         if glob.MEASUREMENT_ACTIVE:
             db_con.insert_comment(glob.METADATA_TIMESTAMP, data['comment'], glob.MEASUREMENT_DISTANCE)
             await SIO.emit('info', 'Kommentar ' + data['comment'] + ' wurde an Station ' + str(glob.MEASUREMENT_DISTANCE) + ' m hinzugefügt')
+            logger.info('comment ' + data['comment'] + ' added')
+            return 'ok'
+        else:
+            await SIO.emit('info', 'Keine aktive Messung')
+    except Exception as ex:
+        await SIO.emit('error', 'Hinzufügen des Kommentars fehlgeschlagen')
+        logger.error(ex, exc_info=True)
+
+
+@SIO.on('chart:add:activeComment')
+async def chart_add_active_comment(sid, data: dict):
+    try:
+        if glob.MEASUREMENT_ACTIVE:
+            db_con.insert_comment(glob.METADATA_TIMESTAMP, data['comment'], glob.MEASUREMENT_DISTANCE)
+            glob.ACTIVE_COM_FUNCTION = {'changeLimitValueTo': data['changeLimitValueTo'], 'changeLimitValueFor': data['changeLimitValueFor']}
+            await SIO.emit('info', 'Aktiver Kommentar ' + data['comment'] + ' wurde an Station ' + str(glob.MEASUREMENT_DISTANCE) + ' m hinzugefügt')
             logger.info('comment ' + data['comment'] + ' added')
             return 'ok'
         else:
@@ -247,13 +266,22 @@ def settings_get_all_comment_btns(sid):
 @SIO.on('settings:add:commentBtn')
 async def settings_add_comment_btn(sid, comment_btn: str):
     try:
-        db_con.insertCommentBtn(comment_btn)
+        db_con.insert_comment_btn(comment_btn)
         return 'ok'
     except Exception as ex:
         await SIO.emit('error', 'Hinzufügen des Kommentarbuttons fehlgeschlagen')
         logger.error(ex, exc_info=True)
         return 'error', ex
 
+@SIO.on('settings:add:commentFunctionBtn')
+async def settings_add_comment_btn_with_function(sid, data: {}):
+    try:
+        db_con.insert_comment_btn_with_function(data['content'], data['changeLimitValueTo'], data['changeLimitValueFor'])
+        return 'ok'
+    except Exception as ex:
+        await SIO.emit('error', 'Hinzufügen des Kommentarbuttons fehlgeschlagen')
+        logger.error(ex, exc_info=True)
+        return 'error', ex
 
 @SIO.on('settings:delete:commentBtn')
 async def settings_delete_comment_btn(sid, comment_btn: str):
