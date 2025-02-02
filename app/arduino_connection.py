@@ -118,6 +118,7 @@ class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
     def handle(self):
         message = self.rfile.readline().strip().decode('UTF-8')
         if "VALUE" in message:
+            glob.DRIVE_BACKWARDS = False
             typeDataSplit = message.split(";")
             if glob.ACTIVE_COM_FUNCTION is not None:
                 if glob.ACTIVE_COM_FUNCTION['changeLimitValueFor'] <= 0:
@@ -136,6 +137,17 @@ class MyUDPRequestHandler(socketserver.DatagramRequestHandler):
             glob.MEASUREMENT_DISTANCE = data["position"]
             if data["height"] > data["limVal"]:
                 generate_beep()
+        elif "BACK" in message:
+            glob.DRIVE_BACKWARDS = True
+            typeDataSplit = message.split(";")
+            data = {
+                "position": float(typeDataSplit[1]),
+                "height": float(typeDataSplit[2]),
+                "speed": float(typeDataSplit[3]),
+                "strWidth": glob.STREET_WIDTH,
+                "limVal": glob.LIMIT_VALUE if glob.ACTIVE_COM_FUNCTION is None else glob.ACTIVE_COM_FUNCTION['changeLimitValueTo']
+            }
+            glob.VIEW_VALUES.append(data)
         elif "STAT" in message:
             # STAT;Hoehe;Batterie;Boolean
             glob.WATCH_DOG = not glob.WATCH_DOG
